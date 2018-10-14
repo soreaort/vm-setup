@@ -1,0 +1,26 @@
+<network>
+  <name>virbr0</name>
+  <uuid>e526e93e-601e-445f-b622-688d1d56a9ca</uuid>
+  <forward mode='nat'>
+    <nat>
+      <port start='1024' end='65535'/>
+    </nat>
+  </forward>
+  <bridge name='virbr0' stp='on' delay='0'/>
+  <mac address='52:54:00:00:3d:52'/>
+  <ip address='172.16.0.1' netmask='255.240.0.0'>
+    <dhcp>
+      <range start='172.16.0.2' end='172.16.0.254'/>
+      <host mac='52:54:00:db:a2:a9' name='vmchef01' ip='172.16.0.11'/>
+      <host mac='52:54:00:25:d1:42' name='vmhaproxy01' ip='172.16.0.10'/>
+      <host mac='52:54:00:3a:0d:ab' name='vmweb02' ip='172.16.0.9'/>
+      <host mac='52:54:00:c1:a5:87' name='vmweb01' ip='172.16.0.8'/>
+      <host mac='52:54:00:2b:68:f9' name='vmnfs01' ip='172.16.0.7'/>
+      <host mac='52:54:00:e1:05:2f' name='vmtools01' ip='172.16.0.6'/>
+      <host mac='52:54:00:49:15:28' name='vmmonitoring01' ip='172.16.0.5'/>
+      <host mac='52:54:00:c3:a5:95' name='vmdatabase02' ip='172.16.0.4'/>
+      <host mac='52:54:00:46:47:2b' name='vmdatabase01' ip='172.16.0.3'/>
+      <host mac='52:54:00:b9:9b:d8' name='vmjump01' ip='172.16.0.2'/>
+    </dhcp>
+  </ip>
+</network>

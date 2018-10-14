@@ -1,0 +1,4 @@
+*.img
+tmp/*
+logs/*
+files/vm*.xml

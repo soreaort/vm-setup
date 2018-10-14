@@ -1,0 +1,8 @@
+vmjump,1,public
+vmdatabase,2
+vmmonitoring,1,public
+vmtools,1,public
+vmnfs,1
+vmweb,2,public
+vmhaproxy,1,public
+vmchef,1,public
