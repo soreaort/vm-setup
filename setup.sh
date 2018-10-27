@@ -4,6 +4,7 @@ XML_DIR="$PWD/files"
 LOG_DIR="$PWD/logs"
 TMP_DIR="$PWD/tmp"
 CONF_DIR="$PWD/conf"
+OUTPUT_DIR="$PWD/output-qemu"
 IMAGES_DIR="/home/images"
 
 if [ ! -d $TMP_DIR ]
@@ -32,6 +33,31 @@ INTVIRNAME="virbr0"
 echo -n > $TMP_DIR/host-mac
 echo -n > $TMP_DIR/host-ip
 
+#Check if template img exists, if not, create it
+if [ ! -f $XML_DIR/template.img ]
+then
+   if [ ! -f packer ]
+   then
+      wget https://releases.hashicorp.com/packer/1.3.1/packer_1.3.1_linux_amd64.zip
+      unzip packer_1.3.1_linux_amd64.zip
+   fi
+   if [ -d $OUTPUT_DIR ]
+   then
+      rm -rf $OUTPUT_DIR
+   fi
+   PACKER_LOG=1 PACKER_LOG_PATH=$LOG_DIR/packer.log $PWD/packer build $PWD/centos7-template.json &
+   echo -e "Be patient :D, It can take long time\nDo not stop!!!"
+   wait
+   if [ -f $OUTPUT_DIR/template.img ]
+   then
+      mv $OUTPUT_DIR/template.img $XML_DIR/template.img
+      ln -s $XML_DIR/template.img $PWD/template.img
+   else
+      echo "Template img was not generated, please review $LOG_DIR/packer.log"
+      exit 1
+   fi
+fi
+
 for row in $(cat $1)
 do
    SUFFIX=$(echo $row | cut -d ',' -f1)
@@ -52,7 +78,6 @@ do
          OLD_MAC1=$(awk -F \' '/mac address/{print $2}' $XML_DIR/nic.xml)
          NEW_MAC1=$(echo "52:54:00:$(dd if=/dev/urandom bs=512 count=1 2>/dev/null | md5sum | sed 's/^\(..\)\(..\)\(..\).*$/\1:\2:\3/')")
          sed "s/$OLD_MAC1/$NEW_MAC1/g" -i $XML_DIR/nic.xml
-         #sed '\/interface/r nic.xml' -i $XML_DIR/$NEW_NAME.xml 
          sed '/<\/interface>/r files/nic.xml' -i $XML_DIR/$NEW_NAME.xml
          sed "s/NETMASK.*/NETMASK=$EXTMASK/;s/IPADDR.*/IPADDR=$EXTIP_STARTS.$EXTH/;s/GATEWAY.*/GATEWAY=$EXTGW/" -i $CONF_DIR/ifcfg-eth1
          echo -e "nameserver 8.8.8.8\nnameserver 8.8.4.4\nnameserver $EXTGW" > $CONF_DIR/resolv.conf
