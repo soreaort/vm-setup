@@ -6,16 +6,8 @@ TMP_DIR="$PWD/tmp"
 CONF_DIR="$PWD/conf"
 OUTPUT_DIR="$PWD/output-qemu"
 IMAGES_DIR="/home/images"
-
-if [ ! -d $TMP_DIR ]
-then
-   mkdir -p $TMP_DIR
-fi
-
-if [ ! -d $LOG_DIR ]
-then
-   mkdir -p $LOG_DIR
-fi
+SYSTEM=$(uname | tr '[:upper:]' '[:lower:]')
+PACKER_VERSION="1.3.1"
 
 EXTMASK="255.255.255.0"
 EXTIP_STARTS="192.168.100"
@@ -30,16 +22,25 @@ INTDOMAIN="internal.depa.mx"
 INTH=2
 INTVIRNAME="virbr0"
 
+if [ ! -d $TMP_DIR ]
+then
+   mkdir -p $TMP_DIR
+fi
+
+if [ ! -d $LOG_DIR ]
+then
+   mkdir -p $LOG_DIR
+fi
+
 echo -n > $TMP_DIR/host-mac
 echo -n > $TMP_DIR/host-ip
 
-#Check if template img exists, if not, create it
-if [ ! -f $XML_DIR/template.img ]
+if [ ! -f $OUTPUT_DIR/template.img ]
 then
    if [ ! -f packer ]
    then
-      wget https://releases.hashicorp.com/packer/1.3.1/packer_1.3.1_linux_amd64.zip
-      unzip packer_1.3.1_linux_amd64.zip
+      wget https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_${SYSTEM}_amd64.zip -O packer.zip
+      unzip packer.zip
    fi
    if [ -d $OUTPUT_DIR ]
    then
@@ -50,11 +51,20 @@ then
    wait
    if [ -f $OUTPUT_DIR/template.img ]
    then
-      mv $OUTPUT_DIR/template.img $XML_DIR/template.img
-      ln -s $XML_DIR/template.img $PWD/template.img
+      ln -s $OUTPUT_DIR/template.img $XML_DIR/template.img
+      ln -s $OUTPUT_DIR/template.img $PWD/template.img
    else
       echo "Template img was not generated, please review $LOG_DIR/packer.log"
       exit 1
+   fi
+else
+   if [ ! -f $XML_DIR/template.img ]
+   then
+      ln -s $OUTPUT_DIR/template.img $XML_DIR/template.img
+   fi
+   if [ ! -f $PWD/template.img ]
+   then
+      ln -s $OUTPUT_DIR/template.img $PWD/template.img
    fi
 fi
 

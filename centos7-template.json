@@ -11,7 +11,7 @@
             "type": "qemu",
             "boot_command": [
 	       "<tab> ",
-               "text ks=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ks.cfg ", 
+               "text ks=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ks.cfg ",
                "<enter>"
             ],
             "headless": "true",
