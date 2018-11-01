@@ -8,3 +8,4 @@ output-qemu
 packer
 packer_cache
 *.zip
+input-vm

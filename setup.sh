@@ -6,6 +6,8 @@ TMP_DIR="$PWD/tmp"
 CONF_DIR="$PWD/conf"
 OUTPUT_DIR="$PWD/output-qemu"
 IMAGES_DIR="/home/images"
+SERVER_LIST="input-vm"
+TEMPLATE="template"
 SYSTEM=$(uname | tr '[:upper:]' '[:lower:]')
 PACKER_VERSION="1.3.1"
 
@@ -22,6 +24,12 @@ INTDOMAIN="internal.depa.mx"
 INTH=2
 INTVIRNAME="virbr0"
 
+if [ $(id -u) != 0 ]
+then
+   echo -e "$0 should be executed as root!!!\nExiting..."
+   exit 1
+fi
+
 if [ ! -d $TMP_DIR ]
 then
    mkdir -p $TMP_DIR
@@ -35,53 +43,62 @@ fi
 echo -n > $TMP_DIR/host-mac
 echo -n > $TMP_DIR/host-ip
 
+echo "Validating if template.img exits"
 if [ ! -f $OUTPUT_DIR/template.img ]
 then
+   echo "template.img does not exit, checking if packer tool is installed"
    if [ ! -f packer ]
    then
+      echo "It is not installed, downloading and installing packer $PACKER_VERSION ..."
       wget https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_${SYSTEM}_amd64.zip -O packer.zip
       unzip packer.zip
    fi
    if [ -d $OUTPUT_DIR ]
    then
+      echo "Removing output dir to avoid issues"
       rm -rf $OUTPUT_DIR
    fi
    PACKER_LOG=1 PACKER_LOG_PATH=$LOG_DIR/packer.log $PWD/packer build $PWD/centos7-template.json &
-   echo -e "Be patient :D, It can take long time\nDo not stop!!!"
+   echo -e "Building template image, Please be patient :D, It can take up to 30 minutes\nDo not stop!!!"
    wait
    if [ -f $OUTPUT_DIR/template.img ]
    then
+      echo "Creating symlinks needed"
       ln -s $OUTPUT_DIR/template.img $XML_DIR/template.img
       ln -s $OUTPUT_DIR/template.img $PWD/template.img
    else
-      echo "Template img was not generated, please review $LOG_DIR/packer.log"
+      echo "There was and issue and template img was not generated, please review $LOG_DIR/packer.log"
       exit 1
    fi
 else
+   echo "Checking if symlinks are in place"
    if [ ! -f $XML_DIR/template.img ]
    then
+      echo "Creating symlink in $XML_DIR"
       ln -s $OUTPUT_DIR/template.img $XML_DIR/template.img
    fi
    if [ ! -f $PWD/template.img ]
    then
+      echo "Creating symlink in $PWD"
       ln -s $OUTPUT_DIR/template.img $PWD/template.img
    fi
 fi
 
-for row in $(cat $1)
+echo "Creating VMs listed on $SERVER_LIST"
+for row in $(cat $SERVER_LIST)
 do
    SUFFIX=$(echo $row | cut -d ',' -f1)
    NUM=$(echo $row | cut -d ',' -f2)
    PUBLIC=$(echo $row | cut -d ',' -f3)
    for i in $(seq -f "%02g" 1 $NUM)
    do
-      OLD_NAME=$(awk -F '[><]' '/<name>/{print $3}' $XML_DIR/$2.xml)
+      OLD_NAME=$(awk -F '[><]' '/<name>/{print $3}' $XML_DIR/$TEMPLATE.xml)
       NEW_NAME=$SUFFIX$i
       echo "Working on $NEW_NAME"
-      OLD_MAC=$(awk -F \' '/mac address/{print $2}' $XML_DIR/$2.xml)
+      OLD_MAC=$(awk -F \' '/mac address/{print $2}' $XML_DIR/$TEMPLATE.xml)
       NEW_MAC=$(echo "52:54:00:$(dd if=/dev/urandom bs=512 count=1 2>/dev/null | md5sum | sed 's/^\(..\)\(..\)\(..\).*$/\1:\2:\3/')")
       MAC_UPPER=$(echo $NEW_MAC | tr '[:lower:]' '[:upper:]')
-      cp $XML_DIR/$2.xml $XML_DIR/$NEW_NAME.xml
+      cp $XML_DIR/$TEMPLATE.xml $XML_DIR/$NEW_NAME.xml
       sed 's/$OLD_NAME/$NEW_NAME/g;s/$OLD_MAC/$NEW_MAC/g' -i $XML_DIR/$NEW_NAME.xml
       if [ ! -z $PUBLIC ]
       then
@@ -127,6 +144,7 @@ do
 done
 
 #Create virbr based on the xml file created before
+echo "Create virttual net..."
 virsh net-destroy $INTVIRNAME
 virsh net-undefine $INTVIRNAME
 virsh net-define $XML_DIR/$INTVIRNAME.xml
@@ -134,6 +152,7 @@ virsh net-start $INTVIRNAME
 virsh net-autostart $INTVIRNAME
 
 #Create hosts file for KVM and starts the VMs
+echo "Starting VMs and filling up hosts file in the kvm server"
 for vm in $(cat $TMP_DIR/host-ip)
 do
    VM_NAME=$(echo $vm | cut -d ',' -f1)
@@ -145,4 +164,5 @@ do
 done
 
 #Health check
+echo "Pinging created VMs..."
 fping $(awk '/vm/{print $3}' /etc/hosts)
