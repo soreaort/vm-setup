@@ -2,3 +2,10 @@
 tmp/*
 logs/*
 files/vm*.xml
+files/virbr0.xml
+files/nic.xml
+output-qemu
+packer
+packer_cache
+*.zip
+input-vm

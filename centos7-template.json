@@ -1,0 +1,48 @@
+{
+    "variables": {
+        "user": "admin",
+        "password": "admin123",
+        "name": "template.img",
+        "disk_size": "10240"
+    },
+    "builders":
+    [
+        {
+            "type": "qemu",
+            "boot_command": [
+	       "<tab> ",
+               "text ks=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ks.cfg ",
+               "<enter>"
+            ],
+            "headless": "true",
+            "vm_name": "{{user `name`}}",
+            "boot_wait": "10s",
+            "disk_size": "{{ user `disk_size`}}",
+            "format": "qcow2",
+            "accelerator": "kvm",
+            "http_directory": "http",
+            "iso_url": "http://linux.mirrors.es.net/centos/7/isos/x86_64/CentOS-7-x86_64-Minimal-1804.iso",
+            "iso_checksum": "13675c6f74880e7ff3481b91bdaf925ce81bda8f",
+            "iso_checksum_type": "sha1",
+            "ssh_username": "{{user `user`}}",
+            "ssh_password": "{{user `password`}}",
+            "ssh_port": "22",
+            "ssh_wait_timeout": "60m",
+            "ssh_pty": "true",
+            "shutdown_command": "echo '{{user `password`}}'|sudo -S shutdown -P now",
+            "qemuargs":[
+                [ "-display", "none" ]
+              ]
+        }
+    ],
+
+    "provisioners": [
+        {
+            "type": "shell",
+            "execute_command": "echo '{{user `password`}}' | {{.Vars}} sudo -E -S bash '{{.Path}}'",
+            "scripts": [
+                "scripts/clean.sh"
+            ]
+        }
+    ]
+}
