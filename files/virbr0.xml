@@ -11,6 +11,10 @@
   <ip address='172.16.0.1' netmask='255.240.0.0'>
     <dhcp>
       <range start='172.16.0.2' end='172.16.0.254'/>
+      <host mac='52:54:00:ec:be:f8' name='vmdatabase02' ip='172.16.0.5'/>
+      <host mac='52:54:00:c6:58:68' name='vmdatabase01' ip='172.16.0.4'/>
+      <host mac='52:54:00:07:37:f4' name='vmweb02' ip='172.16.0.3'/>
+      <host mac='52:54:00:09:72:cd' name='vmweb01' ip='172.16.0.2'/>
     </dhcp>
   </ip>
 </network>
