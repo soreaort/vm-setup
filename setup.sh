@@ -11,18 +11,24 @@ TEMPLATE="template"
 SYSTEM=$(uname | tr '[:upper:]' '[:lower:]')
 PACKER_VERSION="1.3.1"
 
-EXTMASK="255.255.255.0"
-EXTIP_STARTS="192.168.100"
-EXTGW="192.168.100.1"
-EXTDOMAIN="depa.mx"
-EXTH=101
+PUBMASK="255.255.255.0"
+PUBIP_STARTS="192.168.100"
+PUBGW="192.168.100.1"
+PUBDOMAIN="depa.mx"
+PUBH=101
 
-INTMASK="255.240.0.0"
-INTIP_STARTS="172.16.0"
-INTGW="172.16.0.1"
-INTDOMAIN="internal.depa.mx"
-INTH=2
-INTVIRNAME="virbr0"
+MGTMASK="255.0.0.0"
+MGTIP_STARTS="10.0.0"
+MGTGW="10.0.0.1"
+MGTDOMAIN="mgt.depa.mx"
+MGTH=101
+
+STGMASK="255.240.0.0"
+STGIP_STARTS="172.16.0"
+STGGW="172.16.0.1"
+STGDOMAIN="stg.depa.mx"
+STGH=2
+STGVIRNAME="virbr0"
 
 if [ $(id -u) != 0 ]
 then
@@ -100,15 +106,21 @@ do
       MAC_UPPER=$(echo $NEW_MAC | tr '[:lower:]' '[:upper:]')
       cp $XML_DIR/$TEMPLATE.xml $XML_DIR/$NEW_NAME.xml
       sed 's/$OLD_NAME/$NEW_NAME/g;s/$OLD_MAC/$NEW_MAC/g' -i $XML_DIR/$NEW_NAME.xml
+      OLD_MAC1=$(awk -F \' '/mac address/{print $2}' $XML_DIR/nic-virbr1.xml)
+      NEW_MAC1=$(echo "52:54:00:$(dd if=/dev/urandom bs=512 count=1 2>/dev/null | md5sum | sed 's/^\(..\)\(..\)\(..\).*$/\1:\2:\3/')")
+      sed "s/$OLD_MAC1/$NEW_MAC1/g" -i $XML_DIR/nic-virbr1.xml
+      sed '/<\/interface>/r files/nic-virbr1.xml' -i $XML_DIR/$NEW_NAME.xml
+      sed "s/NETMASK.*/NETMASK=$MGTMASK/;s/IPADDR.*/IPADDR=$MGTIP_STARTS.$MGTH/;s/GATEWAY.*/GATEWAY=$MGTGW/" -i $CONF_DIR/ifcfg-eth1
+      echo -e "nameserver 8.8.8.8\nnameserver 8.8.4.4\nnameserver $MGTGW" > $CONF_DIR/resolv.conf
+      let MGTH+=1
       if [ ! -z $PUBLIC ]
       then
-         OLD_MAC1=$(awk -F \' '/mac address/{print $2}' $XML_DIR/nic.xml)
-         NEW_MAC1=$(echo "52:54:00:$(dd if=/dev/urandom bs=512 count=1 2>/dev/null | md5sum | sed 's/^\(..\)\(..\)\(..\).*$/\1:\2:\3/')")
-         sed "s/$OLD_MAC1/$NEW_MAC1/g" -i $XML_DIR/nic.xml
-         sed '/<\/interface>/r files/nic.xml' -i $XML_DIR/$NEW_NAME.xml
-         sed "s/NETMASK.*/NETMASK=$EXTMASK/;s/IPADDR.*/IPADDR=$EXTIP_STARTS.$EXTH/;s/GATEWAY.*/GATEWAY=$EXTGW/" -i $CONF_DIR/ifcfg-eth1
-         echo -e "nameserver 8.8.8.8\nnameserver 8.8.4.4\nnameserver $EXTGW" > $CONF_DIR/resolv.conf
-         let EXTH+=1
+         OLD_MAC2=$(awk -F \' '/mac address/{print $2}' $XML_DIR/nic-virbr2.xml)
+         NEW_MAC2=$(echo "52:54:00:$(dd if=/dev/urandom bs=512 count=1 2>/dev/null | md5sum | sed 's/^\(..\)\(..\)\(..\).*$/\1:\2:\3/')")
+         sed "s/$OLD_MAC2/$NEW_MAC2/g" -i $XML_DIR/nic-virbr2.xml
+         sed '/<\/serial>/r files/nic-virbr2.xml' -i $XML_DIR/$NEW_NAME.xml
+         sed "s/NETMASK.*/NETMASK=$PUBMASK/;s/IPADDR.*/IPADDR=$PUBIP_STARTS.$PUBH/;s/GATEWAY.*/GATEWAY=$PUBGW/" -i $CONF_DIR/ifcfg-eth2
+         let PUBH+=1
       fi
       if [ ! -d $IMAGES_DIR ]
       then
@@ -116,40 +128,41 @@ do
       fi
       #String:2 to remove the first 2 characters 
       virt-clone --name $NEW_NAME --file $IMAGES_DIR/dsk${NEW_NAME:2}.img --original-xml $XML_DIR/$NEW_NAME.xml --mac $MAC_UPPER &>> $LOG_DIR/clone.log
-      virt-sysprep -d $NEW_NAME  --hostname $NEW_NAME.$EXTDOMAIN &>> $LOG_DIR/clone.log
+      virt-sysprep -d $NEW_NAME  --hostname $NEW_NAME.$MGTDOMAIN &>> $LOG_DIR/clone.log
       echo "$NEW_NAME,$MAC_UPPER" >> $TMP_DIR/host-mac
       virt-copy-in -d $NEW_NAME $CONF_DIR/ifcfg-eth0 /etc/sysconfig/network-scripts/
+      virt-copy-in -d $NEW_NAME $CONF_DIR/ifcfg-eth1 /etc/sysconfig/network-scripts/
       virt-copy-in -d $NEW_NAME $CONF_DIR/resolv.conf /etc/
       if [ ! -z $PUBLIC ]
       then
-         virt-copy-in -d $NEW_NAME $CONF_DIR/ifcfg-eth1 /etc/sysconfig/network-scripts/
+         virt-copy-in -d $NEW_NAME $CONF_DIR/ifcfg-eth2 /etc/sysconfig/network-scripts/
       fi
    done
 done
 
 #Renew template file
-sed "/<name>/s/>.*.</>$INTVIRNAME</;s/ip address='[^']*'/ip address='$INTGW'/;s/netmask='[^']*'/netmask='$INTMASK'/;/bridge name/s/name='[^']*'/name='$INTVIRNAME'/;/range start/s/start='[^']*'/start='$INTIP_STARTS.$INTH'/;/range start/s/end='[^']*'/end='$INTIP_STARTS.254'/" -i $XML_DIR/$INTVIRNAME.xml
+sed "/<name>/s/>.*.</>$STGVIRNAME</;s/ip address='[^']*'/ip address='$STGGW'/;s/netmask='[^']*'/netmask='$STGMASK'/;/bridge name/s/name='[^']*'/name='$STGVIRNAME'/;/range start/s/start='[^']*'/start='$STGIP_STARTS.$STGH'/;/range start/s/end='[^']*'/end='$STGIP_STARTS.254'/" -i $XML_DIR/$STGVIRNAME.xml
 #Remove all entries
-sed "/host mac/d" -i $XML_DIR/$INTVIRNAME.xml
+sed "/host mac/d" -i $XML_DIR/$STGVIRNAME.xml
 
 #Bind MAC to an IP address
 for row in $(cat $TMP_DIR/host-mac)
 do
    HOST_NAME=$(echo $row | cut -d "," -f1)
-   INTMAC=$(echo $row | cut -d "," -f2 | tr '[A-Z]' '[a-z]')
+   STGMAC=$(echo $row | cut -d "," -f2 | tr '[A-Z]' '[a-z]')
    #Add new entry
-   sed "/range start/a \      <host mac='$INTMAC' name='$HOST_NAME' ip='$INTIP_STARTS.$INTH'/>" -i $XML_DIR/$INTVIRNAME.xml
-   echo "$HOST_NAME,$INTIP_STARTS.$INTH" >> $TMP_DIR/host-ip
-   let   INTH=INTH+1
+   sed "/range start/a \      <host mac='$STGMAC' name='$HOST_NAME' ip='$STGIP_STARTS.$STGH'/>" -i $XML_DIR/$STGVIRNAME.xml
+   echo "$HOST_NAME,$STGIP_STARTS.$STGH" >> $TMP_DIR/host-ip
+   let   STGH=STGH+1
 done
 
 #Create virbr based on the xml file created before
 echo "Create virttual net..."
-virsh net-destroy $INTVIRNAME
-virsh net-undefine $INTVIRNAME
-virsh net-define $XML_DIR/$INTVIRNAME.xml
-virsh net-start $INTVIRNAME
-virsh net-autostart $INTVIRNAME
+virsh net-destroy $STGVIRNAME
+virsh net-undefine $STGVIRNAME
+virsh net-define $XML_DIR/$STGVIRNAME.xml
+virsh net-start $STGVIRNAME
+virsh net-autostart $STGVIRNAME
 
 #Create hosts file for KVM and starts the VMs
 echo "Starting VMs and filling up hosts file in the kvm server"
@@ -159,7 +172,7 @@ do
    VM_IP=$(echo $vm | cut -d ',' -f2)
    virsh start $VM_NAME
    sed "/$VM_NAME/d;/$VM_IP/d" -i /etc/hosts
-   echo "$VM_IP   $VM_NAME   $VM_NAME.$INTDOMAIN" >> /etc/hosts
+   echo "$VM_IP   $VM_NAME   $VM_NAME.$STGDOMAIN" >> /etc/hosts
    sleep 20
 done
 
