@@ -8,7 +8,7 @@ packer
 packer_cache
 *.zip
 input-vm
-#files/nic-virbr*.xml
-conf/ifcfg-eth1
+files/nic-virbr*.xml
+conf/ifcfg-eth*
 files/virbr0.xml
 input-vm
