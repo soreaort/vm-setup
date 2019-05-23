@@ -3,9 +3,12 @@ tmp/*
 logs/*
 files/vm*.xml
 conf/*
-files/nic-virbr*.xml
 output-qemu
 packer
 packer_cache
 *.zip
+input-vm
+#files/nic-virbr*.xml
+conf/ifcfg-eth1
+files/virbr0.xml
 input-vm
